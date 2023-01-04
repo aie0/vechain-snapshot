@@ -1,0 +1,10 @@
+.DS_Store
+.vscode
+.dccache
+.env
+
+coverage/
+
+node_modules/
+
+build/

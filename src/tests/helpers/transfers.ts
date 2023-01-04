@@ -1,0 +1,82 @@
+import { MongoClient } from 'mongodb'
+
+import { TokenTransfer } from '../../domain/tokenTransfer'
+import { MongoService } from '../../mongo/service'
+
+/* istanbul ignore next */
+const testTransfers = [
+  {
+    blockNum: 123,
+    timestamp: 1650048782000, // Apr 15, 2022, 6:53:02 PM
+    from: '0x123', // 0x123 (-5), 0x321 (+5)
+    to: '0x321',
+    value: 5,
+    tokenAddress: process.env.TOKEN_ADDRESS || ''
+  }, {
+    blockNum: 123,
+    timestamp: 1650048882000, // Apr 15, 2022, 6:54:42 PM
+    from: '0x123', // 0x123(-20), 0x321(+5), 0x3211(+15)
+    to: '0x3211',
+    value: 15,
+    tokenAddress: process.env.TOKEN_ADDRESS || ''
+  }, {
+    blockNum: 125,
+    timestamp: 1650653583000, // Apr 22, 2022, 6:53:03 PM
+    from: '0x321', // 0x123(-15), 0x321(0), 0x3211(+15)
+    to: '0x123',
+    value: 5,
+    tokenAddress: process.env.TOKEN_ADDRESS || ''
+  }, {
+    blockNum: 125,
+    timestamp: 1650739982000, // Apr 23, 2022, 6:53:14 PM
+    to: '0x1223',
+    from: '0x3211', // 0x123(-15), 0x321(0), 0x3211(+9), 0x1223(+6)
+    value: 6,
+    tokenAddress: process.env.TOKEN_ADDRESS || ''
+  }
+]
+
+/* istanbul ignore next */
+const blocksResponse = { number: 0, id: '0x00000000851caf3cfdb6e899cf5958bfb1ac3413d346d43539627e6be7ec1b4a', size: 170, parentID: '0xffffffff53616c757465202620526573706563742c20457468657265756d2100', timestamp: 1530316800, gasLimit: 10000000, beneficiary: '0x0000000000000000000000000000000000000000', gasUsed: 0, totalScore: 0, txsRoot: '0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0', txsFeatures: 0, stateRoot: '0x09bfdf9e24dd5cd5b63f3c1b5d58b97ff02ca0490214a021ed7d99b93867839c', receiptsRoot: '0x45b0cfc220ceec5b7c1c62c4d4193d38e4eba48e8815729ce75f9c0ab0e4c1c0', com: false, signer: '0x0000000000000000000000000000000000000000', isTrunk: true, isFinalized: true, transactions: [] }
+
+/* istanbul ignore next */
+const bestResponse = { number: 14192702, id: '0x00d8903ea321bf0119e8415b01ff5ca9c450d0c96435529ac9d93fcd931a9f27', size: 73656, parentID: '0x00d8903d9000de9b62643c499a445a68eae7ec630dfb891eab7686457526591b', timestamp: 1672450100, gasLimit: 28624943, beneficiary: '0x807f7a34045eec8796cf9c1fca049348544361a9', gasUsed: 28274218, totalScore: 1379702496, txsRoot: '0xad11e71a0983bc5c2524e5be3aa4d936d8946752d83a41e8da96c89dbeb5240d', txsFeatures: 1, stateRoot: '0xc226c0cc21536813a688108848f2a86e8cba3e3241cc12f5cac0d57b51b79ae9', receiptsRoot: '0x389b5db43de07576cd0888b34639e8ed2bdca632791546d8c78337e45b2b3b2c', com: true, signer: '0x1a0c36068f69f9d5c8c84095427bb4c3199b492e', isTrunk: true, isFinalized: false, transactions: ['0x9ab53089e4849cd9b6108cc0baa233834e8af30158d150bb5c83fd590a99ce20', '0xb9256b067ee26b21d52877008c64d6c1446411e9d04308121f0724b937d94f60', '0xd40a02b3cde18f20efb8ff22e797e01c02acb420578b64714dc5583421f37e82', '0xcad4106ba7d10ab64a26542a8c2dd35a28274ad1864abae46e9345c17a31269d', '0x02c281e16a3d98d738262de119931e444d299174287d1293c9f52eb1b5cf136e', '0xc09f11484b1509be2a832c7702507c8c33715122d8cf4c1aaf32832c2871a473', '0xb90112003ac2dd2732b286fd6df668b23c6213431c6b7b869ada0c4c8f6089e2', '0x0dfb39b58f698706c4ff40d611c205d2c41782cf32a42d414a99ab90136ed329', '0x98b16c17ff8acf96622a06935aa3291f43c0dc008cc56228d382b218dd17a565', '0x52b375af413a68eeba7a2f2064aeea9c58068595e392f2cb8f85e8892719f4d7', '0x2c7ad32e3163236979349b8043cc1076098109729bd52be14b1f6840f07491c2', '0xbfb23ad214b62b2f2b4caee8fdd94da498ed72d13dc9c083476cd09119dda2c4', '0x11486ee05196fbf7bc251d495facc3b9247b82df76f2aa7f60bd83086f6ebfb0', '0xe4e5442099644355ed3624a71304b3ce1ac9c0ac0f1a496915d64f8fb41e5756', '0x05e3e26df95ad83340f4d81a6b10cd5071ddd17c327630917c0432f9d675c842'] }
+
+/* istanbul ignore next */
+const transfersResponse = [
+  { address: '0x46209d5e5a49c1d403f4ee3a0a88c3a27e29e58d', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x0000000000000000000000000000000000000000000000000000000000000000', '0x00000000000000000000000076921f9dab5cf6cec34f3bdd47d0b0266d3b610b'], data: '0x0000000000000000000000000000000000000000033b2e3c9fd0803ce8000000', meta: { blockID: '0x003682e7209c47d12f25a379aada7f0fff8286f6a184125e2b0525ae0e33712b', blockNumber: 3572455, blockTimestamp: 1566142930, txID: '0x71c57e3b75307461d43c9125309fed501a2814c91f541c964211bfbb028a0811', txOrigin: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', clauseIndex: 0 }, decoded: { 0: '0x0000000000000000000000000000000000000000', 1: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', 2: '1000000000000000000000000000', _from: '0x0000000000000000000000000000000000000000', _to: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', _value: '1000000000000000000000000000' } },
+  { address: '0x46209d5e5a49c1d403f4ee3a0a88c3a27e29e58d', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x00000000000000000000000076921f9dab5cf6cec34f3bdd47d0b0266d3b610b', '0x000000000000000000000000e219f0b305573f5f878c5363d77d6726a9b1d580'], data: '0x00000000000000000000000000000000000000000000021e19e0c9bab2400000', meta: { blockID: '0x003682fd84445878db9a2e85f59cd843b83ea11960ce1b2229c9a25c8bb95191', blockNumber: 3572477, blockTimestamp: 1566143150, txID: '0xd1514d8c03b9e1cbb5676b34594a97a9bbe38a1560691cc70a6dd8bb1777a9e8', txOrigin: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', clauseIndex: 0 }, decoded: { 0: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', 1: '0xe219f0b305573f5f878c5363d77d6726a9b1d580', 2: '10000000000000000000000', _from: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', _to: '0xe219f0b305573f5f878c5363d77d6726a9b1d580', _value: '10000000000000000000000' } },
+  { address: '0x46209d5e5a49c1d403f4ee3a0a88c3a27e29e58d', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x00000000000000000000000076921f9dab5cf6cec34f3bdd47d0b0266d3b610b', '0x000000000000000000000000747fa3858456f3978cc747ca4290111b933986d5'], data: '0x0000000000000000000000000000000000000000033b2c1e85efb68235c00000', meta: { blockID: '0x00371c23b6b62b36cd7baf36b7ee7ac37e724c60917cabd340b46221638b324f', blockNumber: 3611683, blockTimestamp: 1566537290, txID: '0xcd4002c89a2efe0401fd0e1dda4bfcc9d3cda6e5a341ec1a5e35a77800c9afe9', txOrigin: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', clauseIndex: 0 }, decoded: { 0: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', 1: '0x747fa3858456f3978cc747ca4290111b933986d5', 2: '999990000000000000000000000', _from: '0x76921f9dab5cf6cec34f3bdd47d0b0266d3b610b', _to: '0x747fa3858456f3978cc747ca4290111b933986d5', _value: '999990000000000000000000000' } },
+  { address: '0x46209d5e5a49c1d403f4ee3a0a88c3a27e29e58d', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x000000000000000000000000e219f0b305573f5f878c5363d77d6726a9b1d580', '0x000000000000000000000000254afc2490d83b1a56fe621cd708f89456472d87'], data: '0x00000000000000000000000000000000000000000000006c6b935b8bbd400000', meta: { blockID: '0x00378702a5ce2f1bafa62dfbbf3b7865214892b907035360abe41c02cafc7cb9', blockNumber: 3639042, blockTimestamp: 1566811760, txID: '0x96ef8be4282f163c6d28d771ac95b65b2a1246a5858072a3a4a8a30fa605b2e1', txOrigin: '0xe219f0b305573f5f878c5363d77d6726a9b1d580', clauseIndex: 0 }, decoded: { 0: '0xe219f0b305573f5f878c5363d77d6726a9b1d580', 1: '0x254afc2490d83b1a56fe621cd708f89456472d87', 2: '2000000000000000000000', _from: '0xe219f0b305573f5f878c5363d77d6726a9b1d580', _to: '0x254afc2490d83b1a56fe621cd708f89456472d87', _value: '2000000000000000000000' } },
+  { address: '0x46209d5e5a49c1d403f4ee3a0a88c3a27e29e58d', topics: ['0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef', '0x000000000000000000000000254afc2490d83b1a56fe621cd708f89456472d87', '0x000000000000000000000000eabbb37abc23f75a0e5cfefc51698c6d56e71238'], data: '0x00000000000000000000000000000000000000000000003635c9adc5dea00000', meta: { blockID: '0x0037876fd42a59fe00a913eb83ad77ddd14e21bca14f6e9a4954d86a0aafa123', blockNumber: 3639151, blockTimestamp: 1566812850, txID: '0x83f1966c2dacc2646eb238a9fc5f9959b52c4cdab16986b86d01f868561c0a22', txOrigin: '0x254afc2490d83b1a56fe621cd708f89456472d87', clauseIndex: 0 }, decoded: { 0: '0x254afc2490d83b1a56fe621cd708f89456472d87', 1: '0xeabbb37abc23f75a0e5cfefc51698c6d56e71238', 2: '1000000000000000000000', _from: '0x254afc2490d83b1a56fe621cd708f89456472d87', _to: '0xeabbb37abc23f75a0e5cfefc51698c6d56e71238', _value: '1000000000000000000000' } }]
+
+/* istanbul ignore next */
+const initTransfers = async (s: MongoService, c: MongoClient) => {
+  const transfers: TokenTransfer[] = testTransfers
+
+  await s.setTransfers({
+    transfers
+  })
+
+  try {
+    await c.connect()
+    const count = await c.db('testDB').collection('transfers').countDocuments()
+    expect(count).toBe(4)
+  } finally {
+    await c.close()
+  }
+
+  return transfers
+}
+
+/* istanbul ignore next */
+const getTransfers = async (c: MongoClient): Promise<TokenTransfer[]> => {
+  try {
+    await c.connect()
+    return await c.db('testDB').collection<TokenTransfer>('transfers').find().sort([['blockNum', 1]]).toArray()
+  } finally {
+    await c.close()
+  }
+}
+
+export { initTransfers, testTransfers, getTransfers, blocksResponse, bestResponse, transfersResponse }
